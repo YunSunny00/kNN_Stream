@@ -5,6 +5,7 @@ To build and run nearest neighbor:
 
 To generate new data sets:
 	Edit gen_dataset.sh and select the size of the desired data set
+  mkdir data
 	make hurricane_gen
 	./hurricane_gen <num records> <num files>
 
