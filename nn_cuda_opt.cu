@@ -67,10 +67,7 @@ __global__ void euclid(LatLong *d_locations, float *d_distances, int numRecords,
   LatLong *latLong = d_locations+globalId;
     if (globalId < numRecords) {
       float *dist=d_distances+globalId;
-      float temp = (float)sqrt((lat-latLong->lat)*(lat-latLong->lat)+(lng-latLong->lng)*(lng-latLong->lng));
-      if (temp < 0.001 || globalId == 1804121) {
-      }
-      *dist = (float)sqrt((lat-latLong->lat)*(lat-latLong->lat)+(lng-latLong->lng)*(lng-latLong->lng));
+      *dist = (float)((lat-latLong->lat)*(lat-latLong->lat)+(lng-latLong->lng)*(lng-latLong->lng));
 	}
 }
 
@@ -110,7 +107,7 @@ int main(int argc, char* argv[])
   Record *d_records;
 	float *d_distances;
   // initialize streams
-  const int numStreams = 2;
+  const int numStreams = 8;
   cudaStream_t streams[numStreams];
   for (int i = 0; i < numStreams; ++i) {
     cudaStreamCreate(&streams[i]);
@@ -173,7 +170,7 @@ int main(int argc, char* argv[])
   gettimeofday(&tv_h2d_end, NULL);
   h2d_time += timeGPU(tv_h2d_start, tv_h2d_end);
   
-  int ITER = 20;
+  const int ITER = 100;
   for (int j = 0; j < ITER; j++) {
     /**
     * Execute kernel
