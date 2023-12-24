@@ -153,7 +153,7 @@ int main(int argc, char* argv[])
    /**
     * Transfer data from host to device
     */
-int ITER = 100;
+int ITER = 1;
 for (int i = 0; i < ITER; i++) {
 
 #ifdef  TIMING

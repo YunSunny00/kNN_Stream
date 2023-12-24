@@ -64,10 +64,10 @@ __global__ void euclid(LatLong *d_locations, float *d_distances, int numRecords,
 {
 	//int globalId = gridDim.x * blockDim.x * blockIdx.y + blockDim.x * blockIdx.x + threadIdx.x;
 	int globalId = blockDim.x * ( gridDim.x * blockIdx.y + blockIdx.x ) + threadIdx.x; // more efficient
-  LatLong *latLong = d_locations+globalId;
-    if (globalId < numRecords) {
-      float *dist=d_distances+globalId;
-      *dist = (float)((lat-latLong->lat)*(lat-latLong->lat)+(lng-latLong->lng)*(lng-latLong->lng));
+  if (globalId < numRecords) {
+    LatLong *latLong = d_locations+globalId;
+    float *dist=d_distances+globalId;
+    *dist = (float)((lat-latLong->lat)*(lat-latLong->lat)+(lng-latLong->lng)*(lng-latLong->lng));
 	}
 }
 
@@ -170,22 +170,23 @@ int main(int argc, char* argv[])
   gettimeofday(&tv_h2d_end, NULL);
   h2d_time += timeGPU(tv_h2d_start, tv_h2d_end);
   
-  const int ITER = 100;
+  const int ITER = 1;
   for (int j = 0; j < ITER; j++) {
     /**
     * Execute kernel
     */
     gettimeofday(&tv_kernel_start, NULL);
-    for (int i = 0; i < numStreams; i++) {
-      int offset = i * chunkSize;
+    for (int k = 0; k < numStreams; k++) {
+      int offset = k * chunkSize;
+      if (k == numStreams - 1)
+        chunkSize = numRecords - offset;
       // Asynchronously copy data to the GPU
-      cudaMemcpyAsync(d_locations + offset, &locations[0] + offset, chunkSize * sizeof(LatLong), cudaMemcpyHostToDevice, streams[i]);
-      
+      cudaMemcpyAsync(&d_locations[offset], &locations[offset], chunkSize * sizeof(LatLong), cudaMemcpyHostToDevice, streams[k]);
       // Launch kernel in the stream
-      euclid<<<gridDim, threadsPerBlock, 0, streams[i]>>>(d_locations + offset, d_distances + offset, chunkSize, lat, lng);
+      euclid<<<gridDim, threadsPerBlock, 0, streams[k]>>>(&d_locations[offset], &d_distances[offset], chunkSize, lat, lng);
 
       // Asynchronously copy results back to host
-      cudaMemcpyAsync(distances + offset, d_distances + offset, chunkSize * sizeof(float), cudaMemcpyDeviceToHost, streams[i]);
+      cudaMemcpyAsync(&distances[offset], &d_distances[offset], chunkSize * sizeof(float), cudaMemcpyDeviceToHost, streams[k]);
     }
     cudaDeviceSynchronize();
     gettimeofday(&tv_kernel_end, NULL);
@@ -193,7 +194,6 @@ int main(int argc, char* argv[])
   }
   
   gettimeofday(&tv_kernel_start, NULL);
-  // cudaMemcpy(distances, d_distances, sizeof(float) * numRecords, cudaMemcpyDeviceToHost);
   //Copy data from device memory to host memory
   gettimeofday(&tv_kernel_end, NULL);
   d2h_time += timeGPU(tv_kernel_start, tv_kernel_end);
